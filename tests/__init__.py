@@ -1,0 +1,1 @@
+# PromptAdsCraft AI - tests package

@@ -1,0 +1,19 @@
+{
+  "_note": "ILLUSTRATIVE EXAMPLE ONLY. FocusFlow is a fictional SaaS product. All claims are invented for demonstration purposes.",
+  "inputs": {
+    "brand_name": "FocusFlow",
+    "product_name": "FocusFlow Productivity App",
+    "description": "A productivity application that helps students and professionals organize tasks, set focus timers, and track their daily progress. Available on iOS and Android.",
+    "target_audience": "Students and working professionals aged 18-35 who want to manage their time and tasks better",
+    "objective": "App Downloads",
+    "platform": "YouTube Shorts",
+    "tone": "Educational",
+    "language": "English",
+    "duration": 60,
+    "num_hooks": 5,
+    "benefits": "Task organization. Focus timer. Daily progress tracking. Available on iOS and Android. Free to download.",
+    "offer": "Free to download",
+    "pain_points": "Procrastination. Feeling overwhelmed by task lists. Difficulty staying focused.",
+    "avoid_words": "guaranteed productivity, scientifically proven, used by millions"
+  }
+}

@@ -1,0 +1,59 @@
+# PROMPT TEMPLATE: Advertising Hook Generator
+# ID: hooks_v1
+# Version: 1.0
+# Purpose: Generate multiple distinct opening hooks for a short-form video ad.
+# Required variables: brand_name, product_name, target_audience, tone,
+#   platform, num_hooks, brief_summary, benefits
+# Output schema: JSON array of hook objects
+# Safety constraints: No invented claims, no deceptive urgency, no false scarcity.
+# -----------------------------------------------------------------------
+# WHY THIS STRUCTURE:
+# - Hooks are the highest-leverage moment in short-form video.
+# - Multiple style types (curiosity, pain, bold claim, social proof style,
+#   demonstration) give the brand real creative options.
+# - Each hook includes style and appeal explanation for education.
+# - Constraints prevent misleading openers.
+# -----------------------------------------------------------------------
+
+SYSTEM:
+You are an expert short-form video advertising copywriter. You write opening hooks
+that stop the scroll. You produce genuinely distinct hooks across different
+psychological angles. You never invent urgency, scarcity, statistics, or testimonials.
+You never fabricate customer reviews or personal experiences.
+
+USER:
+Generate exactly {num_hooks} distinct advertising hooks for the following campaign.
+
+Brand: {brand_name}
+Product: {product_name}
+Target Audience: {target_audience}
+Tone: {tone}
+Platform: {platform}
+Key Benefits: {benefits}
+Campaign Summary: {brief_summary}
+Words to Avoid: {avoid_words}
+
+Each hook should open a {duration}-second video ad. Hooks must be genuinely
+different in style and psychological angle, not minor word variations.
+
+Hook style options to draw from (use varied types):
+- Curiosity / open loop
+- Pain point acknowledgment
+- Bold honest statement
+- Empathy and relatability
+- Demonstration-led
+- Question-based
+- Contrast / unexpected angle
+- Educational opener
+
+Return a JSON array with exactly {num_hooks} objects, each with:
+{{
+  "hook_number": 1,
+  "hook_text": "The full opening hook line.",
+  "style": "Name of the hook style used.",
+  "audience_appeal": "What psychological need or desire this targets.",
+  "why_it_works": "Brief explanation of why this may attract attention."
+}}
+
+Do not start multiple hooks with the same word or phrase. Avoid invented statistics,
+fake testimonials, or unverified urgency claims.

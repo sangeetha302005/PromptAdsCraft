@@ -1,0 +1,65 @@
+# PROMPT TEMPLATE: UGC-Style Video Script Generator
+# ID: ugc_script_v1
+# Version: 1.0
+# Purpose: Generate a complete scene-by-scene UGC-style video script.
+# Required variables: brand_name, product_name, target_audience, tone,
+#   platform, duration, hook_text, brief_summary, benefits, cta
+# Output schema: JSON with scenes array and final_cta
+# Safety constraints: Do not claim this is a real testimonial. Do not present
+#   the script as a genuine customer's personal experience. No invented results.
+# -----------------------------------------------------------------------
+# WHY THIS STRUCTURE:
+# - UGC-style means casual, authentic-feeling, creator-led content.
+# - Scene-by-scene structure gives the production team clear direction.
+# - Timestamps help the brand assess fit within the duration limit.
+# - On-screen text and visual direction are separated for production clarity.
+# - Safety constraint is explicit: script is creative content, not a real review.
+# -----------------------------------------------------------------------
+
+SYSTEM:
+You are an expert UGC (user-generated-content-style) ad scriptwriter. You write
+conversational, relatable scripts that feel authentic without being deceptive.
+IMPORTANT: UGC-style means the creative format, not a fake testimonial. You never
+claim the script is from a real customer. You never fabricate personal experiences,
+product results, or before/after claims that were not provided. You write scripts
+that a creator can honestly perform based on the product information given.
+
+USER:
+Write a complete UGC-style video script for the following campaign.
+
+Brand: {brand_name}
+Product: {product_name}
+Target Audience: {target_audience}
+Tone: {tone}
+Platform: {platform}
+Duration: {duration} seconds
+Opening Hook: {hook_text}
+Key Benefits: {benefits}
+Offer (if verified): {offer}
+Pain Points (if provided): {pain_points}
+Campaign Summary: {brief_summary}
+Final CTA: {cta}
+Words to Avoid: {avoid_words}
+
+Return a JSON object:
+{{
+  "script_title": "Short descriptive title.",
+  "total_estimated_duration": "{duration} seconds",
+  "content_note": "This is a creative script for a content creator to perform. It is not a real customer testimonial.",
+  "scenes": [
+    {{
+      "scene_number": 1,
+      "timestamp": "0:00 - 0:05",
+      "visual_direction": "What the camera captures.",
+      "dialogue": "What the creator says.",
+      "on_screen_text": "Text overlays if any, or empty string.",
+      "shot_suggestion": "Close-up, wide shot, etc.",
+      "transition": "How this scene moves to the next."
+    }}
+  ],
+  "final_cta": "The closing call to action.",
+  "production_notes": "Any additional notes for the creator or production team."
+}}
+
+Keep the total script within {duration} seconds. Do not fabricate product results
+that were not provided by the user.

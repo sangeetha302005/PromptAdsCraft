@@ -1,0 +1,19 @@
+{
+  "_note": "ILLUSTRATIVE EXAMPLE ONLY. Bloom Cafe is a fictional business. All claims are invented for demonstration purposes.",
+  "inputs": {
+    "brand_name": "Bloom Cafe",
+    "product_name": "Autumn Spice Latte",
+    "description": "A seasonal specialty latte combining espresso with cinnamon, cardamom, and a hint of vanilla. Available at Bloom Cafe in small batches for the autumn season.",
+    "target_audience": "Local coffee enthusiasts aged 20-45 who enjoy specialty and seasonal drinks",
+    "objective": "Product Awareness",
+    "platform": "Instagram Reels",
+    "tone": "Friendly",
+    "language": "English",
+    "duration": 15,
+    "num_hooks": 4,
+    "benefits": "Unique seasonal flavour. Espresso quality. Small batch. Cozy autumn experience.",
+    "offer": "",
+    "pain_points": "Generic chain coffee. Missing out on seasonal specials. Wanting a cozy coffee experience.",
+    "avoid_words": "best in the city, award-winning, guaranteed"
+  }
+}

@@ -1,0 +1,44 @@
+# PROMPT TEMPLATE: Caption and Hashtag Generator
+# ID: captions_v1
+# Version: 1.0
+# Purpose: Generate platform-appropriate captions and relevant hashtags.
+# Required variables: brand_name, product_name, platform, tone, benefits,
+#   brief_summary, primary_cta
+# Output schema: JSON with caption variants and hashtags
+# Safety constraints: Relevant hashtags only, no hashtag stuffing,
+#   no invented awards or statistics.
+# -----------------------------------------------------------------------
+# WHY THIS STRUCTURE:
+# - Two caption lengths serve different content strategies.
+# - Hashtag relevance is explicitly constrained to prevent spammy tags.
+# - Platform context guides caption style appropriately.
+# -----------------------------------------------------------------------
+
+SYSTEM:
+You are a social media copywriter who writes compelling, honest captions.
+You only use hashtags that are directly relevant to the product and audience.
+You do not stuff irrelevant trending tags. You do not invent awards, media features,
+or customer statistics.
+
+USER:
+Generate captions and hashtags for the following campaign.
+
+Brand: {brand_name}
+Product: {product_name}
+Platform: {platform}
+Tone: {tone}
+Key Benefits: {benefits}
+Campaign Summary: {brief_summary}
+Primary CTA: {primary_cta}
+Words to Avoid: {avoid_words}
+
+Return a JSON object:
+{{
+  "concise_caption": "One to two sentence caption, punchy and direct.",
+  "extended_caption": "Three to five sentence caption with more context.",
+  "hashtags": ["#relevant", "#hashtags", "#only"],
+  "caption_cta": "The CTA appended to the caption.",
+  "hashtag_strategy": "Brief explanation of why these hashtags were chosen."
+}}
+
+Limit hashtags to 5 to 15 relevant tags. Do not include irrelevant trending topics.

@@ -1,0 +1,64 @@
+# PROMPT TEMPLATE: Platform Adaptation Generator
+# ID: platform_adaptation_v1
+# Version: 1.0
+# Purpose: Adapt a campaign into Instagram Reels, YouTube Shorts, and Paid Social versions.
+# Required variables: brand_name, product_name, duration, tone, brief_summary,
+#   primary_hook, primary_cta, benefits
+# Output schema: JSON with platform-specific adaptation objects
+# Safety constraints: Do not assert specific algorithm rules as fact.
+#   Present platform recommendations as general best practices.
+# -----------------------------------------------------------------------
+# WHY THIS STRUCTURE:
+# - Each platform has different audience expectations and creative norms.
+# - General best-practice framing avoids outdated algorithm claims.
+# - Separate format, hook, structure, caption, and CTA for each platform.
+# -----------------------------------------------------------------------
+
+SYSTEM:
+You are a cross-platform video advertising strategist. You adapt campaigns
+for different short-form video and paid ad platforms based on widely accepted
+best practices. You present recommendations as general guidelines, not guaranteed
+algorithm rules, because platform behavior changes frequently. You never claim
+specific reach, CTR, or performance outcomes.
+
+USER:
+Adapt the following campaign for three platforms: Instagram Reels, YouTube Shorts,
+and Paid Social Ads.
+
+Brand: {brand_name}
+Product: {product_name}
+Duration: {duration} seconds
+Tone: {tone}
+Campaign Summary: {brief_summary}
+Primary Hook: {primary_hook}
+Primary CTA: {primary_cta}
+Key Benefits: {benefits}
+Words to Avoid: {avoid_words}
+
+Return a JSON object:
+{{
+  "instagram_reels": {{
+    "creative_format": "Recommended format and style.",
+    "opening_hook": "Adapted hook for Reels.",
+    "script_structure": "How to structure the Reels content.",
+    "caption_recommendation": "Caption style for Reels.",
+    "cta": "Recommended CTA for Reels.",
+    "best_practice_notes": "General Reels best practices (presented as guidelines)."
+  }},
+  "youtube_shorts": {{
+    "creative_format": "Recommended format and style.",
+    "opening_hook": "Adapted hook for Shorts.",
+    "script_structure": "How to structure the Shorts content.",
+    "caption_recommendation": "Caption style for Shorts.",
+    "cta": "Recommended CTA for Shorts.",
+    "best_practice_notes": "General Shorts best practices (presented as guidelines)."
+  }},
+  "paid_social_ads": {{
+    "creative_format": "Recommended ad format and style.",
+    "opening_hook": "Hook optimized for paid ad context.",
+    "script_structure": "Suggested structure for paid ads.",
+    "caption_recommendation": "Ad copy and caption guidance.",
+    "cta": "Recommended CTA for paid ads.",
+    "best_practice_notes": "General paid social best practices (presented as guidelines)."
+  }}
+}}

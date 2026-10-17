@@ -1,0 +1,19 @@
+{
+  "_note": "ILLUSTRATIVE EXAMPLE ONLY. GlowUp is a fictional brand. All claims are invented for demonstration purposes.",
+  "inputs": {
+    "brand_name": "GlowUp",
+    "product_name": "GlowUp Daily Moisturizer",
+    "description": "A lightweight, non-greasy daily moisturizer formulated for all skin types. Absorbs quickly and provides all-day hydration using natural plant-based ingredients.",
+    "target_audience": "Adults aged 25-40 interested in simple, effective everyday skincare",
+    "objective": "Product Awareness",
+    "platform": "Instagram Reels",
+    "tone": "Friendly",
+    "language": "English",
+    "duration": 30,
+    "num_hooks": 5,
+    "benefits": "Lightweight formula. Non-greasy. Absorbs in seconds. All skin types. Made with natural ingredients.",
+    "offer": "",
+    "pain_points": "Moisturizers that feel heavy or greasy. Products that leave a white cast. Complicated skincare routines.",
+    "avoid_words": "clinically proven, dermatologist approved, guaranteed"
+  }
+}
