@@ -150,6 +150,7 @@ class ContentGenerator:
         progress_callback=None,
         force_demo: bool = False,
         fallback_to_synthesis: bool = False,
+        label_as_demo: bool = True,
     ) -> dict:
         """
         Generate a complete campaign package.
@@ -169,7 +170,7 @@ class ContentGenerator:
                     ("Done!", 1.0),
                 ]:
                     progress_callback(step, pct)
-            return _build_demo_campaign(inputs)
+            return synthesize_campaign(inputs, label_as_demo=label_as_demo)
 
         campaign = {"mode": "live", "inputs": inputs}
 
@@ -357,19 +358,15 @@ class ContentGenerator:
     def generate_brief(self, inputs: dict) -> dict:
         """Generate only the campaign brief."""
         if self.ai.is_demo_mode:
-            b = dict(DEMO_BRIEF)
-            b["summary"] = f"[DEMO] Campaign brief for {inputs.get('brand_name', 'your brand')} {inputs.get('product_name', 'product')}."
-            return b
+            synth = synthesize_campaign(inputs, label_as_demo=False)
+            return synth["brief"]
         return self._generate_brief(inputs)
 
     def generate_hooks(self, inputs: dict, brief: Optional[dict] = None) -> list:
         """Generate only advertising hooks."""
         if self.ai.is_demo_mode:
-            num = inputs.get("num_hooks", 5)
-            hooks = [dict(h) for h in DEMO_HOOKS[:num]]
-            for h in hooks:
-                h["hook_text"] = h["hook_text"].replace("GlowUp", inputs.get("brand_name", "GlowUp"))
-            return hooks
+            synth = synthesize_campaign(inputs, label_as_demo=False)
+            return synth["hooks"]
         if not brief:
             brief = self._generate_brief(inputs)
         return self._generate_hooks(inputs, brief)
@@ -383,9 +380,8 @@ class ContentGenerator:
     ) -> dict:
         """Generate only the UGC video script."""
         if self.ai.is_demo_mode:
-            script = json.loads(json.dumps(DEMO_SCRIPT))
-            script["script_title"] = f"[DEMO] UGC Video: {inputs.get('brand_name', 'Brand')} {inputs.get('product_name', 'Product')}"
-            return script
+            synth = synthesize_campaign(inputs, label_as_demo=False)
+            return synth["script"]
         if not brief:
             brief = self._generate_brief(inputs)
         if not hook_text:
@@ -398,7 +394,8 @@ class ContentGenerator:
     def generate_ctas(self, inputs: dict) -> dict:
         """Generate only calls to action."""
         if self.ai.is_demo_mode:
-            return json.loads(json.dumps(DEMO_CTAS))
+            synth = synthesize_campaign(inputs, label_as_demo=False)
+            return synth["ctas"]
         return self._generate_ctas(inputs)
 
     def generate_captions(
@@ -409,7 +406,8 @@ class ContentGenerator:
     ) -> dict:
         """Generate only captions and hashtags."""
         if self.ai.is_demo_mode:
-            return json.loads(json.dumps(DEMO_CAPTIONS))
+            synth = synthesize_campaign(inputs, label_as_demo=False)
+            return synth["captions"]
         if not brief:
             brief = self._generate_brief(inputs)
         if not primary_cta:
@@ -426,7 +424,8 @@ class ContentGenerator:
     ) -> dict:
         """Generate only platform-specific adaptations."""
         if self.ai.is_demo_mode:
-            return json.loads(json.dumps(DEMO_PLATFORMS))
+            synth = synthesize_campaign(inputs, label_as_demo=False)
+            return synth["platform_adaptation"]
         if not brief:
             brief = self._generate_brief(inputs)
         if not primary_hook:
@@ -440,7 +439,8 @@ class ContentGenerator:
     def generate_creative_angles(self, inputs: dict, brief: Optional[dict] = None) -> list:
         """Generate alternative creative angles."""
         if self.ai.is_demo_mode:
-            return [dict(a) for a in DEMO_CREATIVE_ANGLES]
+            synth = synthesize_campaign(inputs, label_as_demo=False)
+            return synth["creative_angles"]
         if not brief:
             brief = self._generate_brief(inputs)
         return self._generate_creative_angles(inputs, brief)
