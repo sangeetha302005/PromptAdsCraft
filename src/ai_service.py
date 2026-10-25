@@ -30,8 +30,10 @@ class DemoModeActive(Exception):
 
 class AIService:
     """
-    Wrapper around the OpenAI Chat Completions API.
-    Separates provider logic from the UI and generation layers.
+    Dual-Engine AI client supporting:
+    1. Google Gemini API (gemini-1.5-flash) - generous free tier
+    2. OpenAI Chat Completions API (gpt-4o-mini, gpt-4o, etc.)
+    3. Safe fallback handling so the UI never crashes
     """
 
     def __init__(
@@ -40,15 +42,33 @@ class AIService:
         model: str = "gpt-4o-mini",
         max_tokens: int = 2000,
         timeout: int = 30,
+        gemini_api_key: Optional[str] = None,
+        provider: str = "auto",
     ):
         self.model = model
         self.max_tokens = max_tokens
         self.timeout = timeout
-        self._api_key = api_key
+        self._api_key = api_key.strip() if api_key else None
+        self._gemini_api_key = gemini_api_key.strip() if gemini_api_key else None
+        self.provider = provider
         self._client = None
 
-        if self._api_key:
+        if self.active_provider == "openai" and self._api_key:
             self._init_client()
+
+    @property
+    def active_provider(self) -> str:
+        """Resolve active AI provider: 'gemini' or 'openai'."""
+        if self.provider == "gemini":
+            return "gemini"
+        if self.provider == "openai":
+            return "openai"
+        # Auto-detection
+        if self._gemini_api_key and not self._api_key:
+            return "gemini"
+        if self._api_key and self._api_key.startswith("AIza"):
+            return "gemini"
+        return "openai"
 
     def _init_client(self) -> None:
         """Initialize the OpenAI client. Errors do not expose the key."""
@@ -69,27 +89,54 @@ class AIService:
 
     @property
     def is_demo_mode(self) -> bool:
-        """True when no API key is configured."""
+        """True when no valid external API key is configured."""
+        if self.active_provider == "gemini":
+            key = self._gemini_api_key or self._api_key
+            return not bool(key and not key.startswith("sk-proj-your"))
         return not bool(self._api_key)
 
     def set_api_key(self, api_key: Optional[str]) -> None:
         """Dynamically update the API key and reinitialize client."""
         self._api_key = api_key.strip() if api_key else None
         self._client = None
-        if self._api_key:
+        if self.active_provider == "openai" and self._api_key:
             self._init_client()
 
+    def set_gemini_api_key(self, key: Optional[str]) -> None:
+        """Set or update Google Gemini API key."""
+        self._gemini_api_key = key.strip() if key else None
+
     def set_model(self, model: str) -> None:
-        """Update model name (e.g. gpt-4o-mini, gpt-4o, etc.)."""
+        """Update model name (e.g. gpt-4o-mini, gemini-1.5-flash, etc.)."""
         self.model = model
 
     def test_connection(self) -> tuple[bool, str]:
         """
-        Safely test OpenAI API connectivity and credential validity.
+        Safely test API connectivity and credential validity for the active provider.
         Returns (success: bool, message: str).
         """
         if self.is_demo_mode:
-            return False, "No OpenAI API key is currently configured. The app is in Demo Mode."
+            return False, "No external API key is currently configured. The app runs in Demo Mode on the built-in Multi-Variable Synthesis Engine."
+
+        if self.active_provider == "gemini":
+            import requests
+            key = self._gemini_api_key or self._api_key
+            if not key:
+                return False, "No Gemini API key configured."
+            try:
+                endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash?key={key}"
+                resp = requests.get(endpoint, timeout=10)
+                if resp.status_code == 200:
+                    return True, "Connection verified successfully! Google Gemini 1.5 Flash API is active and ready."
+                elif resp.status_code in (400, 401, 403):
+                    return False, "API key rejected: Google Gemini authentication failed. Check your API key."
+                elif resp.status_code == 429:
+                    return False, "Quota exceeded: Gemini API rate limit or project quota reached."
+                return False, f"Gemini API returned HTTP status {resp.status_code}."
+            except Exception as exc:
+                return False, f"Connection timeout: Unable to reach Google Gemini servers ({str(exc)})."
+
+        # OpenAI testing
         try:
             if self._client is None:
                 self._init_client()
@@ -162,14 +209,62 @@ class AIService:
             "message": msg,
         }
 
+    def generate_gemini(self, system_prompt: str, user_prompt: str) -> str:
+        """Send generation request to Google Gemini API (gemini-1.5-flash)."""
+        import requests
+        key = self._gemini_api_key or self._api_key
+        if not key:
+            raise DemoModeActive("No Google Gemini API key configured.")
+
+        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
+        combined_prompt = (
+            f"SYSTEM INSTRUCTION:\n{system_prompt}\n\n"
+            f"USER TASK:\n{user_prompt}\n\n"
+            "CRITICAL: Return ONLY a valid JSON object matching the requested schema. No surrounding markdown backticks or commentary."
+        )
+        payload = {
+            "contents": [{"parts": [{"text": combined_prompt}]}],
+            "generationConfig": {
+                "temperature": 0.7,
+                "responseMimeType": "application/json",
+            },
+        }
+        try:
+            resp = requests.post(endpoint, json=payload, timeout=self.timeout)
+            if resp.status_code == 200:
+                data = resp.json()
+                text = (
+                    data.get("candidates", [{}])[0]
+                    .get("content", {})
+                    .get("parts", [{}])[0]
+                    .get("text", "")
+                )
+                if text:
+                    return text
+                raise AIServiceError("Google Gemini returned an empty response. Please retry.")
+            elif resp.status_code in (400, 401, 403):
+                raise AIServiceError("Gemini API authentication failed. Check your API key in Settings.")
+            elif resp.status_code == 429:
+                raise AIServiceError("Gemini API rate limit or project quota reached. Please wait a moment.")
+            else:
+                raise AIServiceError(f"Gemini API error (HTTP {resp.status_code}).")
+        except AIServiceError:
+            raise
+        except Exception as exc:
+            raise AIServiceError(f"Gemini connection failure ({type(exc).__name__}): {str(exc)}")
+
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         """
         Send a chat completion request and return the response text.
+        Routes to Google Gemini or OpenAI based on configuration.
         Raises AIServiceError for API failures.
         Raises DemoModeActive if no API key is set.
         """
         if self.is_demo_mode:
             raise DemoModeActive("No API key configured. Demo Mode is active.")
+
+        if self.active_provider == "gemini":
+            return self.generate_gemini(system_prompt, user_prompt)
 
         if self._client is None:
             self._init_client()

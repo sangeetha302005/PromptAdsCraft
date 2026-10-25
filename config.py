@@ -25,25 +25,65 @@ EXAMPLES_DIR = BASE_DIR / "examples"
 # AI Provider
 # ---------------------------------------------------------------------------
 
+def is_placeholder_key(key: str | None) -> bool:
+    """Return True if the key is empty, malformed, or an unedited example placeholder."""
+    if not key or not isinstance(key, str):
+        return True
+    k = key.strip().lower()
+    placeholders = [
+        "your_openai_api_key_here",
+        "your-actual-api-key-here",
+        "your-actual-key",
+        "your_api_key",
+        "sk-proj-your",
+        "placeholder",
+        "insert-key",
+        "dummy",
+        "example",
+    ]
+    return any(p in k for p in placeholders)
+
+
 def get_api_key() -> str | None:
     """Return OpenAI API key from session state, environment, or Streamlit secrets. Never log the value."""
     try:
         import streamlit as st
         # 1. Check session state (user entered via Settings page)
         sess_key = st.session_state.get("custom_api_key", "").strip()
-        if sess_key:
+        if sess_key and not is_placeholder_key(sess_key):
             return sess_key
         # 2. Check Streamlit secrets
         secret_key = st.secrets.get("OPENAI_API_KEY", "").strip()
-        if secret_key:
+        if secret_key and not is_placeholder_key(secret_key):
             return secret_key
     except Exception:
         pass
 
     # 3. Check environment variable (.env)
     key = os.getenv("OPENAI_API_KEY", "").strip()
-    if key:
+    if key and not is_placeholder_key(key):
         return key
+    return None
+
+
+def get_gemini_api_key() -> str | None:
+    """Return Google Gemini API key from session state, environment, or Streamlit secrets."""
+    try:
+        import streamlit as st
+        sess_key = st.session_state.get("custom_gemini_api_key", "").strip()
+        if sess_key and not is_placeholder_key(sess_key):
+            return sess_key
+        for k in ["GEMINI_API_KEY", "GOOGLE_API_KEY", "VITE_GEMINI_API_KEY"]:
+            secret_key = st.secrets.get(k, "").strip()
+            if secret_key and not is_placeholder_key(secret_key):
+                return secret_key
+    except Exception:
+        pass
+
+    for k in ["GEMINI_API_KEY", "GOOGLE_API_KEY", "VITE_GEMINI_API_KEY"]:
+        key = os.getenv(k, "").strip()
+        if key and not is_placeholder_key(key):
+            return key
     return None
 
 

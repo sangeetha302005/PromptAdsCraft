@@ -303,3 +303,49 @@ def test_live_generation_failure_does_not_silently_fallback_to_demo():
             generator.generate_full_campaign(SAMPLE_INPUTS)
 
         assert "rate limit" in str(exc_info.value).lower()
+
+
+def test_demo_campaign_dynamic_personalization():
+    """Verify that _build_demo_campaign personalizes content based on user inputs."""
+    custom_inputs = {
+        "brand_name": "Bloom Cafe",
+        "product_name": "Autumn Spice Latte",
+        "description": "A delicious seasonal latte with espresso and pumpkin spices.",
+        "target_audience": "Local coffee lovers and autumn enthusiasts",
+        "objective": "Product Awareness",
+        "platform": "Instagram Reels",
+        "tone": "Friendly",
+        "language": "English",
+        "duration": 15,
+        "num_hooks": 4,
+        "benefits": "Warm seasonal spice. Specialty espresso. Cozy autumn vibe.",
+        "offer": "15% off with code AUTUMN15",
+        "pain_points": "Boring chain coffee.",
+        "avoid_words": "guaranteed, best coffee",
+    }
+    campaign = _build_demo_campaign(custom_inputs)
+    assert campaign["mode"] == "demo"
+    assert "Bloom Cafe" in campaign["brief"]["summary"]
+    assert "Autumn Spice Latte" in campaign["brief"]["summary"]
+    assert len(campaign["hooks"]) == 4
+    assert any("Autumn Spice Latte" in h["hook_text"] for h in campaign["hooks"])
+    assert "Bloom Cafe" in campaign["script"]["scenes"][1]["dialogue"]
+
+
+def test_content_generator_force_demo():
+    """Verify force_demo=True produces demo campaign even when an AI service has a key."""
+    with patch.object(AIService, "_init_client"):
+        service = AIService(api_key="sk-real-key")
+        generator = ContentGenerator(service)
+        campaign = generator.generate_full_campaign(SAMPLE_INPUTS, force_demo=True)
+        assert campaign["mode"] == "demo"
+
+
+def test_placeholder_key_detection():
+    """Verify is_placeholder_key flags example keys."""
+    from config import is_placeholder_key
+    assert is_placeholder_key("sk-proj-your-actual-api-key-here") is True
+    assert is_placeholder_key("your_openai_api_key_here") is True
+    assert is_placeholder_key("sk-proj-your-key") is True
+    assert is_placeholder_key(None) is True
+    assert is_placeholder_key("sk-realvalidkey1234567890abcdef") is False

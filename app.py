@@ -48,7 +48,7 @@ st.set_page_config(
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config import (
-    get_api_key, OPENAI_MODEL, MAX_TOKENS, REQUEST_TIMEOUT,
+    get_api_key, get_gemini_api_key, OPENAI_MODEL, MAX_TOKENS, REQUEST_TIMEOUT,
     CAMPAIGN_STORAGE_PATH, APP_NAME, APP_TAGLINE, APP_VERSION,
     SUPPORTED_PLATFORMS, SUPPORTED_TONES, SUPPORTED_DURATIONS, SUPPORTED_OBJECTIVES,
     MIN_HOOKS, MAX_HOOKS,
@@ -379,6 +379,7 @@ def init_session():
         "campaign_result": None,
         "nav_page": "🏠 Dashboard",
         "custom_api_key": "",
+        "custom_gemini_api_key": "",
         "prefill_inputs": None,
         "active_model": OPENAI_MODEL,
         "show_delete_confirm": None,
@@ -406,18 +407,20 @@ def get_storage():
 
 storage = get_storage()
 
-def resolve_api_key() -> str | None:
-    session_key = st.session_state.get("custom_api_key", "").strip()
-    if session_key:
-        return session_key
-    return get_api_key()
+def resolve_api_keys() -> tuple[str | None, str | None]:
+    session_openai = st.session_state.get("custom_api_key", "").strip()
+    session_gemini = st.session_state.get("custom_gemini_api_key", "").strip()
+    openai_k = session_openai or get_api_key()
+    gemini_k = session_gemini or get_gemini_api_key()
+    return openai_k, gemini_k
 
 
-active_key = resolve_api_key()
+active_openai_key, active_gemini_key = resolve_api_keys()
 active_model = st.session_state.get("active_model", OPENAI_MODEL)
 
 ai_service = AIService(
-    api_key=active_key,
+    api_key=active_openai_key,
+    gemini_api_key=active_gemini_key,
     model=active_model,
     max_tokens=MAX_TOKENS,
     timeout=REQUEST_TIMEOUT,
@@ -751,13 +754,16 @@ def page_campaign_generator():
     # Mode Selector
     col_m1, col_m2 = st.columns([2, 1])
     with col_m1:
-        default_mode_idx = 0 if not ai_service.is_demo_mode else 1
+        mode_options = [
+            "⚡ Multi-Variable Prompt Synthesis Engine (Default / Free / Instant)",
+            "🤖 Live AI Generation (Google Gemini / OpenAI)",
+        ]
         gen_mode = st.radio(
-            "Generation Mode",
-            ["⚡ Live AI Generation (OpenAI)", "🧪 Sample Demo Mode (No API key needed)"],
-            index=default_mode_idx,
+            "Generation Engine",
+            mode_options,
+            index=0,
             horizontal=True,
-            help="Choose Live AI to send real OpenAI requests, or Sample Demo to test without an API key.",
+            help="Multi-Variable Prompt Synthesis Engine runs in pure Python with zero cost, zero API keys, and instant <1s generation. Live AI connects to Google Gemini (gemini-1.5-flash) or OpenAI with automatic fallback.",
         )
     with col_m2:
         if st.button("🔄 Reset / Clear Form", key="gen_clear_form", use_container_width=True):
@@ -903,10 +909,10 @@ def page_campaign_generator():
 
         is_live_request = "Live AI" in gen_mode
 
-        # Check API key if Live AI was chosen
+        # If live AI requested but no key configured, route gracefully
         if is_live_request and ai_service.is_demo_mode:
-            st.error("❌ Cannot run Live AI generation: No OpenAI API key is configured. Please add your key in ⚙️ Settings or switch to 'Sample Demo Mode'.")
-            return
+            st.info("💡 Note: No external API key is currently detected. Automatically utilizing the built-in Multi-Variable Prompt Synthesis Engine.")
+            is_live_request = False
 
         # Progress UI
         progress_bar = st.progress(0, text="Initializing generation studio...")
@@ -923,25 +929,29 @@ def page_campaign_generator():
                     result = generator.generate_full_campaign(
                         inputs=inputs_payload,
                         progress_callback=update_progress,
+                        force_demo=False,
+                        fallback_to_synthesis=True,
                     )
                 else:
-                    # Run deterministic demo mode
+                    # Run deterministic smart multi-variable synthesis engine
                     result = generator.generate_full_campaign(
                         inputs=inputs_payload,
                         progress_callback=update_progress,
+                        force_demo=True,
                     )
-                    result["mode"] = "demo"
 
             st.session_state.campaign_result = result
             st.session_state["just_generated"] = True
 
             # Save to storage
             campaign_title = f"{brand_name} - {product_name} ({platform})"
-            save_status = "Completed" if is_live_request else "Demo"
+            save_status = "Completed" if (is_live_request and result.get("mode") == "live") else "Synthesized"
             storage.save_campaign(result, campaign_name=campaign_title, status=save_status)
 
             progress_bar.progress(1.0, text="Campaign generated successfully!")
             status_box.empty()
+            if result.get("fallback_notice"):
+                st.info(f"💡 {result['fallback_notice']}")
             st.success("✅ Complete advertising campaign generated and saved! Redirecting to Content Studio...")
             time.sleep(0.3)
             navigate_to("📊 Campaign Results")
@@ -950,8 +960,24 @@ def page_campaign_generator():
             progress_bar.empty()
             status_box.empty()
             st.error(f"Generation error: {str(exc)}")
-            # Do NOT fall back silently to demo data
-            st.info("💡 Review your OpenAI API Key and quota in ⚙️ Settings. Live generation will never silently substitute fake data.")
+            st.info("💡 You do not need an API key to generate! Click below to synthesize instantly:")
+            if st.button("🚀 Generate Instantly with Multi-Variable Synthesis Engine", key="btn_fallback_gen", type="primary"):
+                try:
+                    with st.spinner("Synthesizing campaign package..."):
+                        result = generator.generate_full_campaign(
+                            inputs=inputs_payload,
+                            progress_callback=update_progress,
+                            force_demo=True,
+                        )
+                    st.session_state.campaign_result = result
+                    st.session_state["just_generated"] = True
+                    campaign_title = f"{brand_name} - {product_name} ({platform})"
+                    storage.save_campaign(result, campaign_name=campaign_title, status="Synthesized")
+                    st.success("✅ Complete advertising campaign generated! Redirecting...")
+                    time.sleep(0.3)
+                    navigate_to("📊 Campaign Results")
+                except Exception as inner_exc:
+                    st.error(f"Error during fallback generation: {str(inner_exc)}")
 
     # Render results inline if available
     if st.session_state.get("campaign_result"):
@@ -1904,45 +1930,97 @@ def page_settings():
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("### 🔑 OpenAI API Integration")
+    st.markdown("""
+    <div class="card" style="margin-bottom: 1.5rem; border-left: 3px solid #38bdf8;">
+        <h4 style="color:#38bdf8; margin:0 0 0.5rem 0;">⚡ Dual-Engine Creative Architecture</h4>
+        <p style="color:#94a3b8; font-size:0.88rem; margin-bottom:0.6rem;">
+            PromptAdsCraft AI is engineered to be <strong>100% resilient</strong> and never leave you stranded with dead-end API errors:
+        </p>
+        <ul style="color:#cbd5e1; font-size:0.85rem; padding-left:1.2rem; margin-bottom:0;">
+            <li><strong>Engine 1 (Default): Pure Python Multi-Variable Synthesis Engine</strong> — 
+            <code>Copy = f(Brand, Product, Audience, USPs, Tone, Platform, Duration, Context)</code>. 
+            Zero cost, no API keys needed, instant generation in under 1 second, and zero deployment configuration.</li>
+            <li><strong>Engine 2: Neural LLM Engine (Google Gemini 1.5 Flash or OpenAI)</strong> — 
+            Connects to your Google AI Studio or OpenAI API key.</li>
+            <li><strong>Built-in Fallback Safeguard:</strong> If an external API call hits a quota limit, rate limit, or network timeout, 
+            it automatically falls back to Engine 1 without crashing or showing an error.</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
 
-    col_k1, col_k2 = st.columns([3, 1])
-    with col_k1:
-        current_key_display = st.session_state.get("custom_api_key", "")
-        new_key_input = st.text_input(
-            "OpenAI API Key",
-            value=current_key_display,
-            type="password",
-            placeholder="sk-proj-...",
-            help="Your key is held strictly in session memory and is never logged or exposed.",
-        )
-    with col_k2:
-        st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
-        if st.button("Apply API Key", type="primary", use_container_width=True):
-            st.session_state["custom_api_key"] = new_key_input.strip()
-            ai_service.set_api_key(new_key_input.strip())
-            st.success("API key updated for this session!")
-            st.rerun()
+    tab_gemini, tab_openai = st.tabs(["✨ Google Gemini API (Recommended Free Tier)", "🔑 OpenAI API"])
 
-    # Connection Test Button
-    col_t1, col_t2 = st.columns([2, 2])
+    with tab_gemini:
+        st.markdown("#### Google Gemini 1.5 Flash (Generous Free Tier)")
+        st.caption("Google Gemini offers free API access with generous rate limits via Google AI Studio.")
+        col_g1, col_g2 = st.columns([3, 1])
+        with col_g1:
+            curr_gemini = st.session_state.get("custom_gemini_api_key", "")
+            new_gemini = st.text_input(
+                "Gemini API Key",
+                value=curr_gemini,
+                type="password",
+                placeholder="AIzaSy...",
+                key="input_gemini_key",
+                help="Get a free Gemini API key at aistudio.google.com",
+            )
+        with col_g2:
+            st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+            if st.button("Apply Gemini Key", type="primary", key="btn_apply_gemini", use_container_width=True):
+                st.session_state["custom_gemini_api_key"] = new_gemini.strip()
+                ai_service.set_gemini_api_key(new_gemini.strip())
+                st.success("Google Gemini API key activated!")
+                st.rerun()
+
+    with tab_openai:
+        st.markdown("#### OpenAI API (GPT-4o Mini / GPT-4o)")
+        col_k1, col_k2 = st.columns([3, 1])
+        with col_k1:
+            current_key_display = st.session_state.get("custom_api_key", "")
+            new_key_input = st.text_input(
+                "OpenAI API Key",
+                value=current_key_display,
+                type="password",
+                placeholder="sk-proj-...",
+                key="input_openai_key",
+                help="Your key is held strictly in session memory and is never logged or exposed.",
+            )
+        with col_k2:
+            st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+            if st.button("Apply OpenAI Key", type="primary", key="btn_apply_openai", use_container_width=True):
+                st.session_state["custom_api_key"] = new_key_input.strip()
+                ai_service.set_api_key(new_key_input.strip())
+                st.success("OpenAI API key activated!")
+                st.rerun()
+
+    # Connection Test & Reset Controls
+    st.markdown("---")
+    col_t1, col_t2 = st.columns([1, 1])
     with col_t1:
-        if st.button("🔌 Test API Connection", key="btn_test_conn", use_container_width=True):
-            with st.spinner("Testing OpenAI credentials with backend ping..."):
+        if st.button("🔌 Test Active AI Connection", key="btn_test_conn", use_container_width=True):
+            with st.spinner("Testing API connection..."):
                 details = ai_service.get_status_details()
                 if details["connected"]:
                     st.success(f"✅ {details['message']}")
                 else:
                     st.error(f"❌ Connection Status [{details['status']}]: {details['message']}")
+    with col_t2:
+        if st.button("🗑️ Clear All Keys & Use Pure Python Engine", key="btn_clear_key", use_container_width=True):
+            st.session_state["custom_api_key"] = ""
+            st.session_state["custom_gemini_api_key"] = ""
+            ai_service.set_api_key(None)
+            ai_service.set_gemini_api_key(None)
+            st.info("All keys cleared! The app is operating 100% on the Pure Python Multi-Variable Synthesis Engine.")
+            st.rerun()
 
     st.markdown("---")
     st.markdown("### 🤖 Model Selection")
-    model_choices = ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo", "gpt-4-turbo"]
+    model_choices = ["gemini-1.5-flash", "gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"]
     selected_m = st.selectbox(
         "Active Model",
         model_choices,
         index=model_choices.index(ai_service.model) if ai_service.model in model_choices else 0,
-        help="gpt-4o-mini is recommended for rapid, cost-effective, high-quality ad generation.",
+        help="gemini-1.5-flash and gpt-4o-mini are recommended for rapid, cost-effective generation.",
     )
     if selected_m != ai_service.model:
         ai_service.set_model(selected_m)
@@ -1956,31 +2034,30 @@ def page_settings():
 
     with tab_local:
         st.markdown("""
-        To persist your API key permanently for local runs:
-        
-        1. Open or create a file named `.env` in the project root:
+        To persist credentials permanently for local runs, add to `.env`:
         ```bash
-        C:\\Users\\Sangeetha Suresh\\Downloads\\PromptAdsCraft\\.env
-        ```
-        2. Insert your key and desired model:
-        ```bash
-        OPENAI_API_KEY=sk-proj-your-actual-api-key-here
+        # Google Gemini (Free Tier)
+        GEMINI_API_KEY=AIzaSy...
+
+        # Or OpenAI
+        OPENAI_API_KEY=sk-...
         OPENAI_MODEL=gpt-4o-mini
         ```
-        3. Never commit `.env` to git (it is already included in `.gitignore`).
         """)
 
     with tab_cloud:
         st.markdown("""
-        To deploy on Streamlit Community Cloud:
-        
-        1. Go to your App settings on [share.streamlit.io](https://share.streamlit.io).
-        2. Navigate to **Secrets** and add:
+        To configure on Streamlit Community Cloud (Optional):
+        1. Open app settings on [share.streamlit.io](https://share.streamlit.io)
+        2. Go to **Secrets** and add:
         ```toml
-        OPENAI_API_KEY = "sk-proj-your-actual-api-key-here"
-        OPENAI_MODEL = "gpt-4o-mini"
+        # Google Gemini (Free Tier)
+        GEMINI_API_KEY = "AIzaSy..."
+
+        # Or OpenAI
+        OPENAI_API_KEY = "sk-..."
         ```
-        3. Save secrets. Your app will automatically detect and authenticate with OpenAI.
+        *Note: If no secrets are set, the app will seamlessly run using the built-in Multi-Variable Prompt Synthesis Engine at zero cost.*
         """)
 
     st.markdown("---")

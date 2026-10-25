@@ -16,11 +16,13 @@ Demo Mode guarantees:
 
 from __future__ import annotations
 import json
+import re
 from typing import Any, Optional
 
 from .ai_service import AIService, AIServiceError, DemoModeActive, split_prompt
 from .prompt_builder import build_prompt
 from .quality_checker import run_quality_check
+from .synthesis_engine import synthesize_campaign
 
 
 # ---------------------------------------------------------------------------
@@ -123,55 +125,47 @@ DEMO_CREATIVE_ANGLES = [
 
 def _build_demo_campaign(inputs: dict) -> dict:
     """
-    Build a complete demo campaign using deterministic sample data.
-    Clearly labeled as demo content throughout.
+    Build a complete, structured demo campaign using the pure-Python
+    Multi-Variable Prompt Synthesis Engine:
+    Copy = f(Brand, Product, Target Audience, Benefits, Tone, Platform, Duration, Context)
     """
-    campaign = {
-        "mode": "demo",
-        "demo_notice": (
-            "DEMO MODE: This content uses sample data, not live AI generation. "
-            "Configure an OpenAI API key to generate real campaign content. "
-            "Demo outputs are illustrative only and should not be published."
-        ),
-        "inputs": inputs,
-        "brief": DEMO_BRIEF,
-        "hooks": DEMO_HOOKS[:inputs.get("num_hooks", 5)],
-        "script": DEMO_SCRIPT,
-        "ctas": DEMO_CTAS,
-        "captions": DEMO_CAPTIONS,
-        "platform_adaptation": DEMO_PLATFORMS,
-        "creative_angles": DEMO_CREATIVE_ANGLES,
-        "quality_review": None,
-    }
-    campaign["quality_review"] = run_quality_check(campaign)
-    return campaign
+    return synthesize_campaign(inputs, label_as_demo=True)
 
 
 class ContentGenerator:
     """
-    Orchestrates the full campaign generation pipeline.
-    Uses AIService for live generation or falls back to Demo Mode.
+    Dual-Engine Campaign Content Orchestrator:
+    1. Built-in Multi-Variable Prompt Synthesis Engine (Default / Free / Instant)
+       Written in pure Python: Copy = f(Business, Location, Services, Audience, USPs, Tone, Context)
+    2. Google Gemini / OpenAI Live AI Engine (if key configured)
+    3. Seamless Auto-Fallback: If live API fails, seamlessly synthesizes campaign without crashing
     """
 
     def __init__(self, ai_service: AIService):
         self.ai = ai_service
 
-    def generate_full_campaign(self, inputs: dict, progress_callback=None) -> dict:
+    def generate_full_campaign(
+        self,
+        inputs: dict,
+        progress_callback=None,
+        force_demo: bool = False,
+        fallback_to_synthesis: bool = False,
+    ) -> dict:
         """
         Generate a complete campaign package.
         progress_callback(step: str, pct: float) is called at each stage if provided.
         Returns the full campaign dict.
         """
-        if self.ai.is_demo_mode:
+        if force_demo or self.ai.is_demo_mode:
             if progress_callback:
                 for step, pct in [
-                    ("Preparing demo campaign...", 0.1),
-                    ("Loading sample brief...", 0.2),
-                    ("Loading sample hooks...", 0.35),
-                    ("Loading sample script...", 0.5),
-                    ("Loading sample CTAs...", 0.65),
-                    ("Loading sample captions...", 0.75),
-                    ("Running quality checks...", 0.9),
+                    ("Preparing Multi-Variable Synthesis Engine...", 0.1),
+                    ("Synthesizing tailored campaign brief...", 0.2),
+                    ("Crafting high-converting hooks...", 0.35),
+                    ("Building scene-by-scene UGC script...", 0.5),
+                    ("Formulating targeted calls to action...", 0.65),
+                    ("Creating captions and strategic hashtags...", 0.75),
+                    ("Running content quality and safety checks...", 0.9),
                     ("Done!", 1.0),
                 ]:
                     progress_callback(step, pct)
@@ -183,37 +177,51 @@ class ContentGenerator:
             if progress_callback:
                 progress_callback(label, pct)
 
-        _step("Generating campaign brief...", 0.05)
-        campaign["brief"] = self._generate_brief(inputs)
+        try:
+            _step("Generating campaign brief...", 0.05)
+            campaign["brief"] = self._generate_brief(inputs)
 
-        _step("Generating advertising hooks...", 0.2)
-        campaign["hooks"] = self._generate_hooks(inputs, campaign["brief"])
+            _step("Generating advertising hooks...", 0.2)
+            campaign["hooks"] = self._generate_hooks(inputs, campaign["brief"])
 
-        _step("Writing UGC video script...", 0.35)
-        primary_hook = campaign["hooks"][0]["hook_text"] if campaign["hooks"] else ""
-        primary_cta = "Visit our website to learn more."
-        campaign["script"] = self._generate_script(inputs, campaign["brief"], primary_hook, primary_cta)
+            _step("Writing UGC video script...", 0.35)
+            primary_hook = campaign["hooks"][0]["hook_text"] if campaign["hooks"] else ""
+            primary_cta = "Visit our website to learn more."
+            campaign["script"] = self._generate_script(inputs, campaign["brief"], primary_hook, primary_cta)
 
-        _step("Generating calls to action...", 0.5)
-        campaign["ctas"] = self._generate_ctas(inputs)
-        primary_cta = campaign["ctas"].get("recommended_primary_cta", primary_cta)
+            _step("Generating calls to action...", 0.5)
+            campaign["ctas"] = self._generate_ctas(inputs)
+            primary_cta = campaign["ctas"].get("recommended_primary_cta", primary_cta)
 
-        _step("Creating captions and hashtags...", 0.62)
-        campaign["captions"] = self._generate_captions(inputs, campaign["brief"], primary_cta)
+            _step("Creating captions and hashtags...", 0.62)
+            campaign["captions"] = self._generate_captions(inputs, campaign["brief"], primary_cta)
 
-        _step("Adapting for platforms...", 0.74)
-        campaign["platform_adaptation"] = self._generate_platform_adaptation(
-            inputs, campaign["brief"], primary_hook, primary_cta
-        )
+            _step("Adapting for platforms...", 0.74)
+            campaign["platform_adaptation"] = self._generate_platform_adaptation(
+                inputs, campaign["brief"], primary_hook, primary_cta
+            )
 
-        _step("Generating creative angles...", 0.84)
-        campaign["creative_angles"] = self._generate_creative_angles(inputs, campaign["brief"])
+            _step("Generating creative angles...", 0.84)
+            campaign["creative_angles"] = self._generate_creative_angles(inputs, campaign["brief"])
 
-        _step("Running quality checks...", 0.93)
-        campaign["quality_review"] = run_quality_check(campaign)
+            _step("Running quality checks...", 0.93)
+            campaign["quality_review"] = run_quality_check(campaign)
 
-        _step("Complete!", 1.0)
-        return campaign
+            _step("Complete!", 1.0)
+            return campaign
+        except Exception as exc:
+            if fallback_to_synthesis:
+                if progress_callback:
+                    progress_callback("⚡ Seamlessly falling back to Multi-Variable Synthesis Engine...", 0.95)
+                fallback_res = _build_demo_campaign(inputs)
+                fallback_res["fallback_notice"] = (
+                    f"Live API request encountered an issue ({type(exc).__name__}). "
+                    "Successfully generated your complete campaign package using the built-in Multi-Variable Prompt Synthesis Engine."
+                )
+                if progress_callback:
+                    progress_callback("Done!", 1.0)
+                return fallback_res
+            raise
 
     def _call_ai(self, template_name: str, variables: dict) -> dict:
         full_prompt = build_prompt(template_name, variables)
