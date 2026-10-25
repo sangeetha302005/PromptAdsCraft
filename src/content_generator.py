@@ -151,6 +151,7 @@ class ContentGenerator:
         force_demo: bool = False,
         fallback_to_synthesis: bool = False,
         label_as_demo: bool = True,
+        **kwargs,
     ) -> dict:
         """
         Generate a complete campaign package.

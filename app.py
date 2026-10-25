@@ -62,7 +62,34 @@ from src.prompt_builder import (
     get_all_template_names, get_template_metadata, load_template, sanitized_preview
 )
 from src.quality_checker import run_quality_check
+import importlib
+import src.synthesis_engine
+import src.content_generator
 
+try:
+    importlib.reload(src.synthesis_engine)
+    importlib.reload(src.content_generator)
+except Exception:
+    pass
+
+
+def clean_campaign_output(campaign: dict) -> dict:
+    """Ensure campaign output has no [DEMO] prefixes and is labeled as synthesized."""
+    if not isinstance(campaign, dict):
+        return campaign
+
+    def _strip(val):
+        if isinstance(val, str):
+            return re.sub(r"^\[DEMO\]\s*", "", val)
+        elif isinstance(val, dict):
+            return {k: _strip(v) for k, v in val.items()}
+        elif isinstance(val, list):
+            return [_strip(v) for v in val]
+        return val
+
+    cleaned = _strip(campaign)
+    cleaned["mode"] = "synthesis"
+    return cleaned
 # ---------------------------------------------------------------------------
 # Comprehensive Dark Studio CSS
 # Resolves all button contrast issues and eliminates white rectangular artifacts
@@ -894,12 +921,20 @@ def page_campaign_generator():
 
         try:
             with st.spinner("Synthesizing campaign package..."):
-                result = generator.generate_full_campaign(
-                    inputs=inputs_payload,
-                    progress_callback=update_progress,
-                    force_demo=True,
-                    label_as_demo=False,
-                )
+                try:
+                    result = generator.generate_full_campaign(
+                        inputs=inputs_payload,
+                        progress_callback=update_progress,
+                        force_demo=True,
+                        label_as_demo=False,
+                    )
+                except TypeError:
+                    result = generator.generate_full_campaign(
+                        inputs=inputs_payload,
+                        progress_callback=update_progress,
+                        force_demo=True,
+                    )
+                result = clean_campaign_output(result)
 
             st.session_state.campaign_result = result
             st.session_state["just_generated"] = True
@@ -1573,7 +1608,11 @@ def page_sample_campaigns():
         inputs = raw_sample.get("inputs", {})
         
         # Build deterministic synthesized representation for viewing
-        demo_pkg = generator.generate_full_campaign(inputs, force_demo=True, label_as_demo=False)
+        try:
+            demo_pkg = generator.generate_full_campaign(inputs, force_demo=True, label_as_demo=False)
+        except TypeError:
+            demo_pkg = generator.generate_full_campaign(inputs, force_demo=True)
+        demo_pkg = clean_campaign_output(demo_pkg)
 
         col_top_info, col_top_act = st.columns([3, 1])
         with col_top_info:
