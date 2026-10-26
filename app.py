@@ -24,6 +24,7 @@ A professional AI-powered UGC advertising and content marketing studio with:
 from __future__ import annotations
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -80,6 +81,10 @@ def clean_campaign_output(campaign: dict) -> dict:
 
     def _strip(val):
         if isinstance(val, str):
+            if val.startswith("[DEMO] "):
+                return val[7:]
+            if val.startswith("[DEMO]"):
+                return val[6:]
             return re.sub(r"^\[DEMO\]\s*", "", val)
         elif isinstance(val, dict):
             return {k: _strip(v) for k, v in val.items()}
