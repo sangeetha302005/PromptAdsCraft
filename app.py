@@ -501,7 +501,6 @@ with st.sidebar:
                 <div style="font-size:0.75rem; color:#38bdf8; font-weight:500;">Intelligent Creative Studio</div>
             </div>
         </div>
-        <div style="margin-top:0.5rem; font-size:0.72rem; color:#64748b;">v1.0.0 • Portfolio Project</div>
     </div>
     """, unsafe_allow_html=True)
 
